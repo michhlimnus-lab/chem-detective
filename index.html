@@ -24,6 +24,11 @@
         .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
         @keyframes bounceShort { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .animate-bounce-short { animation: bounceShort 0.5s ease-in-out; }
+        
+        /* Hide number input arrows for cleaner subscript look */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
@@ -52,17 +57,18 @@
         const EyeIcon = (p) => <Icon {...p} path='<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>' />;
         const CopyIcon = (p) => <Icon {...p} path='<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>' />;
         const XIcon = (p) => <Icon {...p} path='<path d="M18 6 6 18"/><path d="m6 6 12 12"/>' />;
+        const TargetIcon = (p) => <Icon {...p} path='<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>' />;
 
         // ======================================================
-        // 🔥 PASTE YOUR FIREBASE CONFIG FROM THE CONSOLE BELOW 🔥
+        // 🔥 YOUR FIREBASE CONFIG (Retained!) 🔥
         // ======================================================
         const firebaseConfig = {
-    apiKey: "AIzaSyDRO8liDHigDRzV0jpHn3c4SmDlC-l3qLc",
-    authDomain: "chem-detective-2026.firebaseapp.com",
-    projectId: "chem-detective-2026",
-    storageBucket: "chem-detective-2026.firebasestorage.app",
-    messagingSenderId: "477655926627",
-    appId: "1:477655926627:web:2a7d12a0163b54af5ab556"
+            apiKey: "AIzaSyDRO8liDHigDRzV0jpHn3c4SmDlC-l3qLc",
+            authDomain: "chem-detective-2026.firebaseapp.com",
+            projectId: "chem-detective-2026",
+            storageBucket: "chem-detective-2026.firebasestorage.app",
+            messagingSenderId: "477655926627",
+            appId: "1:477655926627:web:2a7d12a0163b54af5ab556"
         };
         // ======================================================
 
@@ -95,7 +101,7 @@
         const Latex = ({ children }) => {
           const containerRef = useRef(null);
           useEffect(() => {
-            if (window.katex && containerRef.current) {
+            if (window.katex && containerRef.current && children) {
               window.katex.render(children.toString(), containerRef.current, { throwOnError: false });
             }
           }, [children]);
@@ -153,6 +159,7 @@
             { component: <CrissCrossScreen onNext={() => setCurrentStep(2)} /> },
             { component: <DebateScreen onNext={() => setCurrentStep(3)} submitResponse={(t) => submitResponse("Phase 3: The Debate", t)} /> },
             { component: <ContextScreen onNext={() => setCurrentStep(4)} submitResponse={(t) => submitResponse("Phase 4: Polyatomic Context", t)} /> },
+            { component: <PracticeScreen onNext={() => setCurrentStep(5)} submitResponse={(t) => submitResponse("Phase 5: Practice Quiz", t)} /> }, // NEW PHASE ADDED
             { component: <SummaryScreen onReset={() => {setCurrentStep(0); setStudentName("");}} /> },
           ];
 
@@ -282,11 +289,124 @@
               <p className="text-slate-600">Why do we need brackets for Nitrate but not for Chloride?</p>
               <textarea className="w-full p-4 border rounded-lg h-32" value={response} onChange={(e) => setResponse(e.target.value)} disabled={submitted}></textarea>
               <button onClick={() => { setSubmitted(true); submitResponse(response); }} className="bg-teal-600 text-white px-6 py-2 rounded-lg">Submit Analysis</button>
-              <div className="flex justify-end"><button onClick={onNext} className="bg-indigo-600 text-white px-6 py-2 rounded-lg">Finish</button></div>
+              <div className="flex justify-end"><button onClick={onNext} className="bg-indigo-600 text-white px-6 py-2 rounded-lg">Finish Reasoning</button></div>
             </div>
           );
         }
 
+        // --- NEW PHASE: SUBSCRIPT PRACTICE ---
+        function PracticeScreen({ onNext, submitResponse }) {
+          const questions = [
+            { cat: CATIONS[0] /* Na */, an: ANIONS[0] /* Cl */, expC: 1, expA: 1 },
+            { cat: CATIONS[2] /* Mg */, an: ANIONS[0] /* Cl */, expC: 1, expA: 2 },
+            { cat: CATIONS[2] /* Mg */, an: ANIONS[1] /* O */,  expC: 1, expA: 1 },
+            { cat: CATIONS[4] /* Al */, an: ANIONS[1] /* O */,  expC: 2, expA: 3 },
+            { cat: CATIONS[3] /* Ca */, an: ANIONS[3] /* NO3 */, expC: 1, expA: 2 }
+          ];
+
+          const [qIdx, setQIdx] = useState(0);
+          const [cSub, setCSub] = useState(1);
+          const [aSub, setASub] = useState(1);
+          const [feedback, setFeedback] = useState(null);
+
+          const currentQ = questions[qIdx];
+
+          const handleCheck = () => {
+            if (cSub === currentQ.expC && aSub === currentQ.expA) {
+              setFeedback('correct');
+              setTimeout(() => {
+                if (qIdx < questions.length - 1) {
+                  setQIdx(qIdx + 1);
+                  setCSub(1);
+                  setASub(1);
+                  setFeedback(null);
+                } else {
+                  setFeedback('finished');
+                  submitResponse(`Scored 5/5 on the Subscript Challenge!`);
+                }
+              }, 1500);
+            } else {
+              setFeedback('wrong');
+              setTimeout(() => setFeedback(null), 2000);
+            }
+          };
+
+          // Helper to render the pieces around the interactive dropdowns
+          const renderCatSymbol = () => {
+            let sym = `\\mathrm{${currentQ.cat.symbol.replace(/(\d+)/g, '_{$1}')}}`;
+            if (currentQ.cat.isPoly && cSub > 1) return `\\left(${sym}\\right)`;
+            return sym;
+          };
+          const renderAnSymbol = () => {
+            let sym = `\\mathrm{${currentQ.an.symbol.replace(/(\d+)/g, '_{$1}')}}`;
+            if (currentQ.an.isPoly && aSub > 1) return `\\left(${sym}\\right)`;
+            return sym;
+          };
+
+          return (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex items-center justify-between border-b pb-4">
+                <div className="flex items-center gap-2 text-indigo-700">
+                  <TargetIcon size={28} />
+                  <h2 className="text-2xl font-bold">The Subscript Challenge</h2>
+                </div>
+                <div className="font-bold text-slate-500">Question {qIdx + 1} of {questions.length}</div>
+              </div>
+              
+              <p className="text-slate-600">Select the correct subscripts to balance the charges for this compound.</p>
+
+              <div className="bg-slate-100 rounded-2xl p-8 border border-slate-200 mt-6 text-center">
+                
+                {/* The Ions */}
+                <div className="flex justify-center gap-12 text-3xl mb-8 opacity-80">
+                   <Latex>{formatIonLatex(currentQ.cat, true)}</Latex>
+                   <Latex>+</Latex>
+                   <Latex>{formatIonLatex(currentQ.an, false)}</Latex>
+                </div>
+
+                {/* The Interactive Formula Builder */}
+                <div className="flex justify-center items-end text-5xl font-bold font-serif mb-8 bg-white p-6 rounded-xl shadow-inner inline-flex">
+                   <div className="text-slate-800"><Latex>{renderCatSymbol()}</Latex></div>
+                   <select 
+                      className={`text-2xl border-2 rounded p-1 mx-1 outline-none text-blue-600 font-sans cursor-pointer ${cSub > 1 ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-transparent text-transparent hover:text-blue-400'}`}
+                      value={cSub} 
+                      onChange={(e)=>setCSub(Number(e.target.value))}
+                    >
+                     {[1,2,3,4].map(n => <option key={n} value={n} className="text-slate-800">{n === 1 ? '1 (Hide)' : n}</option>)}
+                   </select>
+                   
+                   <div className="text-slate-800"><Latex>{renderAnSymbol()}</Latex></div>
+                   <select 
+                      className={`text-2xl border-2 rounded p-1 mx-1 outline-none text-yellow-600 font-sans cursor-pointer ${aSub > 1 ? 'border-yellow-400 bg-yellow-50' : 'border-slate-200 bg-transparent text-transparent hover:text-yellow-400'}`}
+                      value={aSub} 
+                      onChange={(e)=>setASub(Number(e.target.value))}
+                    >
+                     {[1,2,3,4].map(n => <option key={n} value={n} className="text-slate-800">{n === 1 ? '1 (Hide)' : n}</option>)}
+                   </select>
+                </div>
+
+                {/* Feedback & Actions */}
+                <div className="h-16 flex items-center justify-center">
+                  {feedback === 'correct' && <div className="text-green-600 font-bold text-xl flex items-center gap-2 animate-bounce-short"><CheckCircleIcon /> Perfect Balance!</div>}
+                  {feedback === 'wrong' && <div className="text-rose-600 font-bold flex items-center gap-2 animate-pulse"><ShieldAlertIcon /> Charges don't cancel to zero. Try again!</div>}
+                  {feedback === 'finished' && <div className="text-indigo-600 font-bold text-xl">Challenge Complete!</div>}
+                  
+                  {!feedback && (
+                    <button onClick={handleCheck} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-full font-bold shadow-md transition-transform active:scale-95">
+                      Check Formula
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {feedback === 'finished' && (
+                 <div className="flex justify-end pt-4 animate-fade-in"><button onClick={onNext} className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold">Complete Lesson</button></div>
+              )}
+            </div>
+          );
+        }
+
+        // --- Phase 6: Summary Screen ---
         function SummaryScreen({ onReset }) {
           return <div className="text-center py-10 space-y-6"><CheckCircleIcon size={64} className="text-green-500 mx-auto"/><h2 className="text-3xl font-bold">Lesson Complete!</h2><button onClick={onReset} className="bg-slate-800 text-white px-8 py-3 rounded-full">Restart</button></div>;
         }
